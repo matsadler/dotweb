@@ -1,5 +1,8 @@
 mod graphviz;
 
+use std::net::ToSocketAddrs;
+
+use structopt::StructOpt;
 use warp::Filter;
 
 use crate::graphviz::{
@@ -7,8 +10,21 @@ use crate::graphviz::{
     Format,
 };
 
+/// Web interface for dot
+#[derive(StructOpt, Debug)]
+pub struct Opts {
+    /// Host to listen on
+    #[structopt(short = "H", long, default_value = "127.0.0.1", value_name = "HOST")]
+    pub host: String,
+    /// Port to listen on
+    #[structopt(short = "P", long, default_value = "8080", value_name = "PORT")]
+    pub port: u16,
+}
+
 #[tokio::main]
 async fn main() {
+    let opts = Opts::from_args();
+
     let api = warp::path::end()
         .and(warp::post())
         .and(
@@ -37,5 +53,9 @@ async fn main() {
     });
     let app = api.or(page).or(icon);
 
-    warp::serve(app).run(([127, 0, 0, 1], 8080)).await;
+    let socket_addr = (opts.host, opts.port)
+        .to_socket_addrs().unwrap()
+        .next()
+        .unwrap();
+    warp::serve(app).run(socket_addr).await;
 }
