@@ -1,0 +1,191 @@
+<!doctype html>
+<html>
+<head>
+
+<title>dot</title>
+<script>
+  function debounce(f) {
+    let timeout;
+    return function(...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(function () {
+        f.apply(this, args);
+      }, 250);
+    };
+  }
+
+  async function updateOutput(textarea) {
+    let input = textarea.value;
+    let request = fetch("/", {
+      method: "POST",
+      headers: {
+        "Accept": "image/svg+xml",
+        "Content-Type": "text/vnd.graphviz"
+      },
+      body: input,
+    });
+
+    let out = document.getElementById("out");
+    let error = document.getElementById("error");
+
+    let res = await request;
+    if (res.ok) {
+      let blob = await res.blob();
+      let url = URL.createObjectURL(blob);
+      out.src = url;
+      out.classList.remove("error");
+      error.textContent = "";
+      error.style.display = "none";
+    } else {
+      out.classList.add("error");
+      error.textContent = await res.text();
+      error.style.display = "block";
+    }
+  }
+
+  function numberLines(textarea) {
+      let lineHeight;
+      if (textarea._computedLineHeight) {
+        lineHeight = textarea._computedLineHeight;
+      } else {
+        let temp = document.createElement("textarea");
+        temp.innerText = "X";
+        temp.setAttribute("rows", "1");
+        let computedStyle = window.getComputedStyle(textarea);
+        temp.style.font = computedStyle.font;
+        temp.style.lineHeight = computedStyle.lineHeight;
+        temp.style.padding = "0";
+        temp.style.border = "0";
+        document.body.appendChild(temp);
+        lineHeight = temp.offsetHeight;
+        document.body.removeChild(temp);
+        textarea._computedLineHeight = lineHeight;
+      }
+
+      let canvas = document.getElementById("line_numbers");
+      canvas.height = textarea.clientHeight;
+      canvas.width = 28;
+
+      let ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#888";
+      ctx.font = "9pt monospace";
+      ctx.textAlign = "end";
+
+      let startLine = Math.max(1, Math.floor(textarea.scrollTop / lineHeight));
+      let endLine = startLine + Math.ceil(textarea.clientHeight / lineHeight);
+      for (let line = startLine; line <= endLine; line += 1) {
+        ctx.fillText(line, canvas.width, lineHeight * line + 4 - textarea.scrollTop);
+      }
+  };
+
+  const handleInput = debounce(updateOutput);
+  document.addEventListener("DOMContentLoaded", function () {
+    let textarea = document.querySelector("textarea");
+    let input = localStorage.getItem("input");
+    if (!input) {
+      input = "digraph {\n  a -> b\n  a -> c\n  b -> d\n  c -> d\n}\n"
+    };
+    textarea.innerHTML = input;
+
+    textarea.addEventListener("input", function () {
+      localStorage.setItem("input", textarea.value);
+      handleInput(textarea);
+    });
+    updateOutput(textarea);
+
+    let pending;
+    let update = function () {
+      if (pending) {
+        return false;
+      }
+      pending = true;
+      window.requestAnimationFrame(function () {
+        numberLines(textarea);
+        pending = false;
+      });
+    };
+    update();
+    textarea.addEventListener("scroll", update);
+    let observer = new ResizeObserver(update);
+    observer.observe(textarea);
+  });
+</script>
+<style>
+  body {
+    background-color: #efefef;
+    padding: 1em 1em 1em 2em;
+    font-family: sans-serif;
+  }
+
+  form {
+    display: grid;
+    grid-template-columns: 2fr 3fr;
+    grid-template-rows: 1fr;
+    grid-gap: 1em;
+    height: calc(100vh - 3em);
+  }
+
+  canvas {
+    position: absolute;
+    left: 0;
+  }
+
+  textarea {
+    padding: 0.5em;
+    font-family: monospace;
+    font-size: 11pt;
+    border: none;
+    border-left: 1px solid #ccc;
+    resize: none;
+    margin: 0;
+  }
+
+  textarea:focus {
+      outline: none;
+  }
+
+  output {
+    display: block;
+    background-color: #fff;
+    position: relative;
+    overflow: scroll;
+  }
+
+  output img {
+    display: block;
+    margin: 1em auto;
+  }
+
+  img.error {
+    opacity: 0.4;
+  }
+
+  #error {
+    display: none;
+    margin: 0;
+    background-color: #f99;
+    border: 2px solid #f00;
+    padding: 0.5em;
+    z-index: 100;
+    position: absolute;
+    top: 0;
+    width: calc(100% - 1em - 4px);
+  }
+</style>
+
+</head>
+
+<body>
+
+<form>
+  <canvas id="line_numbers"></canvas>
+  <textarea autofocus wrap="off"></textarea>
+  <output>
+    <p id="error"></p>
+    <img id="out">
+  </output>
+</form>
+
+</body>
+</html>
