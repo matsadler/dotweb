@@ -1,7 +1,7 @@
 use warp::{
     http::{
         header::{HeaderValue, CONTENT_TYPE},
-        Response,
+        Response, StatusCode,
     },
     hyper::Body,
     reject::{Reject, Rejection},
@@ -61,4 +61,15 @@ pub async fn dot(bytes: bytes::Bytes, format: Format) -> Result<OutputFormat, Re
     super::dot_with_format(&bytes, format)
         .await
         .map_err(warp::reject::custom)
+}
+
+pub async fn handle_rejection(err: Rejection) -> Result<impl Reply, Rejection> {
+    if let Some(e) = err.find::<Error>() {
+        Ok(warp::reply::with_status(
+            e.to_string(),
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ))
+    } else {
+        Err(err)
+    }
 }

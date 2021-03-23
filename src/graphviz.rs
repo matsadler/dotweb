@@ -1,6 +1,6 @@
 pub mod warp;
 
-use std::{io, process::Stdio, time::Duration};
+use std::{error::Error as StdError, fmt, io, process::Stdio, time::Duration};
 
 use futures::future::try_join3;
 use tokio::{
@@ -15,6 +15,25 @@ pub enum Error {
     Io(std::io::Error),
     Dot(String),
     Timeout,
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Io(e) => e.fmt(f),
+            Self::Dot(s) => s.splitn(2, "<stdin>: ").map(|s| s.fmt(f)).collect(),
+            Self::Timeout => write!(f, "operation timed out"),
+        }
+    }
+}
+
+impl StdError for Error {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        match self {
+            Self::Io(e) => Some(e),
+            Self::Dot(_) | Self::Timeout => None,
+        }
+    }
 }
 
 impl From<io::Error> for Error {

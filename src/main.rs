@@ -6,7 +6,7 @@ use structopt::StructOpt;
 use warp::Filter;
 
 use crate::graphviz::{
-    warp::{accept_format_or, dot},
+    warp::{accept_format_or, dot, handle_rejection},
     Format,
 };
 
@@ -51,7 +51,7 @@ async fn main() {
             "image/vnd.microsoft.icon",
         )
     });
-    let app = api.or(page).or(icon);
+    let app = api.or(page).or(icon).recover(handle_rejection);
 
     let socket_addr = (opts.host, opts.port)
         .to_socket_addrs().unwrap()
