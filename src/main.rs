@@ -39,7 +39,7 @@ async fn main() {
     #[cfg(debug_assertions)]
     let page = warp::path::end()
         .and(warp::get())
-        .and(warp::fs::file("template.html"));
+        .and(warp::fs::file("src/template.html"));
     #[cfg(not(debug_assertions))]
     let page = warp::path::end()
         .and(warp::get())
