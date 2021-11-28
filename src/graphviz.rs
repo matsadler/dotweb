@@ -21,7 +21,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Io(e) => e.fmt(f),
-            Self::Dot(s) => s.splitn(2, "<stdin>: ").map(|s| s.fmt(f)).collect(),
+            Self::Dot(s) => s.splitn(2, "<stdin>: ").try_for_each(|s| s.fmt(f)),
             Self::Timeout => write!(f, "operation timed out"),
         }
     }
@@ -145,7 +145,7 @@ impl Graphviz {
                 if let Some((_, mut dot)) = state {
                     let _ = dot.kill().await;
                 }
-                return Err(Error::Timeout);
+                Err(Error::Timeout)
             }
         }
     }
