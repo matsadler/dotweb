@@ -2,7 +2,7 @@
 name = "dotweb"
 version = "0.1.0"
 authors = ["Mat Sadler <mat@sourcetagsandcodes.com>"]
-edition = "2018"
+edition = "2021"
 
 
 [dependencies]
