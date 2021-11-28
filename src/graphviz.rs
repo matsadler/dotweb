@@ -90,6 +90,10 @@ impl Graphviz {
         }
     }
 
+    pub fn is_rate_limited(&self) -> bool {
+        self.semaphore.available_permits() == 0
+    }
+
     async fn command(&self, name: &str, type_name: &str, input: &[u8]) -> Result<Vec<u8>, Error> {
         let mut command = Command::new(name);
         command
@@ -155,6 +159,10 @@ static DEFAULT: Graphviz = Graphviz::new(Duration::from_secs(4), ProcessCount::n
 
 pub async fn dot_with_format(input: &[u8], format: Format) -> Result<OutputFormat, Error> {
     DEFAULT.dot_with_format(input, format).await
+}
+
+pub fn is_rate_limited() -> bool {
+    DEFAULT.is_rate_limited()
 }
 
 macro_rules! output_type {

@@ -59,7 +59,14 @@ async fn main() {
             "image/vnd.microsoft.icon",
         )
     });
-    let app = api.or(page).or(icon).recover(handle_rejection);
+    let status = warp::path!("status").and(warp::get()).map(|| {
+        if graphviz::is_rate_limited() {
+            "LIMITED"
+        } else {
+            "OK"
+        }
+    });
+    let app = api.or(page).or(icon).or(status).recover(handle_rejection);
 
     let socket_addr = (opts.host, opts.port)
         .to_socket_addrs()
