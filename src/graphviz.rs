@@ -3,6 +3,7 @@ pub mod warp;
 use std::{error::Error as StdError, fmt, io, process::Stdio, time::Duration};
 
 use futures::future::try_join3;
+use log::debug;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     process::Command,
@@ -117,6 +118,8 @@ impl Graphviz {
                 .await
                 .expect("semaphore isn't ever closed");
 
+            debug!("acquired permit {:?}", permit);
+
             state = Some((permit, command.spawn()?));
             let dot = match state {
                 Some((_, ref mut d)) => d,
@@ -133,6 +136,7 @@ impl Graphviz {
             let mut stderr_io = dot.stderr.take().unwrap();
             let stderr_f = stderr_io.read_to_end(&mut stderr);
 
+            debug!("waiting for process {:?}", dot.id());
             let (status, _, _) = try_join3(dot.wait(), stdout_f, stderr_f).await?;
 
             if status.success() {

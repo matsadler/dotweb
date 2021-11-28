@@ -3,6 +3,7 @@ mod graphviz;
 use std::net::ToSocketAddrs;
 
 use futures::stream::StreamExt;
+use log::{debug, info};
 use signal_hook::consts::signal::{SIGHUP, SIGINT, SIGQUIT, SIGTERM};
 use signal_hook_tokio::Signals;
 use structopt::StructOpt;
@@ -22,6 +23,12 @@ pub struct Opts {
     /// Port to listen on
     #[structopt(short = "P", long, default_value = "8080", value_name = "PORT")]
     pub port: u16,
+    /// Silence all output
+    #[structopt(short = "q", long = "quiet", conflicts_with = "verbose")]
+    pub quiet: bool,
+    /// Verbose mode, multiples increase the verbosity
+    #[structopt(short, long, global = true, parse(from_occurrences))]
+    pub verbose: usize,
 }
 
 #[tokio::main]
@@ -32,6 +39,18 @@ async fn main() {
     };
 
     let opts = Opts::from_args();
+
+    let mut logger = stderrlog::new();
+    logger.quiet(opts.quiet)
+        .verbosity(opts.verbose)
+        .timestamp(stderrlog::Timestamp::Off)
+        .color(stderrlog::ColorChoice::Never)
+        .show_level(false)
+        .show_module_names(false)
+        .init()
+        .unwrap();
+
+    debug!("{:#?}", opts);
 
     let api = warp::path::end()
         .and(warp::post())
@@ -66,13 +85,14 @@ async fn main() {
             "OK"
         }
     });
-    let app = api.or(page).or(icon).or(status).recover(handle_rejection);
+    let app = api.or(page).or(icon).or(status).recover(handle_rejection).with(warp::log("dotweb"));
 
-    let socket_addr = (opts.host, opts.port)
+    let addr = (opts.host, opts.port)
         .to_socket_addrs()
         .unwrap()
         .next()
         .unwrap();
-    let (_, server) = warp::serve(app).bind_with_graceful_shutdown(socket_addr, signal);
+    let (addr, server) = warp::serve(app).bind_with_graceful_shutdown(addr, signal);
+    info!("Listening on {}", addr);
     server.await;
 }
