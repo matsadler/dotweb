@@ -2,6 +2,9 @@ mod graphviz;
 
 use std::net::ToSocketAddrs;
 
+use futures::stream::StreamExt;
+use signal_hook::consts::signal::{SIGHUP, SIGINT, SIGQUIT, SIGTERM};
+use signal_hook_tokio::Signals;
 use structopt::StructOpt;
 use warp::Filter;
 
@@ -23,6 +26,11 @@ pub struct Opts {
 
 #[tokio::main]
 async fn main() {
+    let mut signals = Signals::new(&[SIGHUP, SIGTERM, SIGINT, SIGQUIT]).unwrap();
+    let signal = async move {
+        signals.next().await;
+    };
+
     let opts = Opts::from_args();
 
     let api = warp::path::end()
@@ -54,8 +62,10 @@ async fn main() {
     let app = api.or(page).or(icon).recover(handle_rejection);
 
     let socket_addr = (opts.host, opts.port)
-        .to_socket_addrs().unwrap()
+        .to_socket_addrs()
+        .unwrap()
         .next()
         .unwrap();
-    warp::serve(app).run(socket_addr).await;
+    let (_, server) = warp::serve(app).bind_with_graceful_shutdown(socket_addr, signal);
+    server.await;
 }
